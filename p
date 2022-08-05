@@ -185,7 +185,7 @@ sub main {
     my $print_spec = join(', ', @with_groups_joined); # with comma in the awk print
     my $cmd = join(' ', 'awk', @awk_args, qq{'BEGIN{OFS=FS} {print $print_spec}'});
 
-    warn $cmd;
+    #warn $cmd;
     exec $cmd;
 }
 
