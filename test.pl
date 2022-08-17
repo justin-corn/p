@@ -98,12 +98,12 @@ EOF
 
 {
     my $expected = <<EOF;
-c2a
-f2d
+c2 \$3 anythinga
+f2 \$3 anythingd
 EOF
     is(
-        output_of($input, q{3%{2}1}), $expected,
-        "should allow pct fields with curly braces without spaces in spec"
+        output_of($input, q{3%{2 $3 anything}1}), $expected,
+        "should allow pct literal blocks with curly braces in spec"
     );
 };
 

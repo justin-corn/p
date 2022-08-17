@@ -51,6 +51,9 @@
 #   p 1%2\$3
 #       awk '{print $1 "2" $3}'
 #
+#   p 1%{2$3anything}
+#       awk '{print $1 "2$3anything" }'
+#
 #   p '1%2${3}4'
 #       awk '{print $1 "2" $3 $4}'
 #
@@ -125,7 +128,7 @@ sub token_re {
             %%          | # literal %
             \$\$        | # literal $
             %-?\d+      | # literal digits
-            %\{-?\d+\}  | # literal digits
+            %\{[^}]*\}  | # literal block
             \$-?\d+     | # explicit field specifier
             \$\{-?\d+\} | # explicit field specifier
             -?\d+         # field specifier
@@ -152,18 +155,20 @@ sub dsl_token_to_awk_spec {
     return q{"$"} if ($token =~ /^\$\$$/);
 
     # literal digits
-    if ($token =~ /^%(-?\d+)$/)    { return qq{"$1"}; }
-    if ($token =~ /^%\{(-?\d+)\}/) { return qq{"$1"}; }
+    if ($token =~ /^%(-?\d+)$/)     { return qq{"$1"}; }
+
+    # literal block
+    if ($token =~ /^%\{([^}]*)\}$/) { return qq{"$1"}; }
 
     # field specifiers
-    if ($token =~ /^(\d+)$/)      { return "\$$1"; }
-    if ($token =~ /^\$(\d+)$/)    { return "\$$1"; }
-    if ($token =~ /^\$\{(\d+)\}/) { return "\$$1"; }
+    if ($token =~ /^(\d+)$/)        { return "\$$1"; }
+    if ($token =~ /^\$(\d+)$/)      { return "\$$1"; }
+    if ($token =~ /^\$\{(\d+)\}$/)  { return "\$$1"; }
 
     # negatively-indexed field specifiers
-    if ($token =~ /^-(\d+)$/)      { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^\$-(\d+)$/)    { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^\$\{-(\d+)\}/) { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^-(\d+)$/)       { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^\$-(\d+)$/)     { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^\$\{-(\d+)\}$/) { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
 
     # add quotes to literal strings
     return qq{"$token"};
