@@ -85,8 +85,8 @@ d1
 EOF
 
     is(
-        output_of($input, q{1%1}), $expected,
-        "should allow pct literals without spaces in spec"
+        output_of($input, q{1@1}), $expected,
+        "should allow at literals without spaces in spec"
     );
 };
 
@@ -97,19 +97,19 @@ d-1
 EOF
 
     is(
-        output_of($input, q{1%-1}), $expected,
-        "should allow negative pct literals without spaces in spec"
+        output_of($input, q{1@-1}), $expected,
+        "should allow negative at literals without spaces in spec"
     );
 };
 
 {
     my $expected = <<EOF;
-c2 \$3 anythinga
-f2 \$3 anythingd
+c2 %3 anythinga
+f2 %3 anythingd
 EOF
     is(
-        output_of($input, q{3%{2 $3 anything}1}), $expected,
-        "should allow pct literal blocks with curly braces in spec"
+        output_of($input, q{3@{2 %3 anything}1}), $expected,
+        "should allow at literal blocks with curly braces in spec"
     );
 };
 
@@ -119,19 +119,19 @@ b-1a
 e-1d
 EOF
     is(
-        output_of($input, q{2%{-1}1}), $expected,
-        "should allow negative pct fields with curly braces without spaces in spec"
+        output_of($input, q{2@{-1}1}), $expected,
+        "should allow negative at literals with curly braces without spaces in spec"
     );
 };
 
 {
     my $expected = <<'EOF';
-b%1
-e%1
+b@1
+e@1
 EOF
     is(
-        output_of($input, q{2%%%1}), $expected,
-        "should allow literal double pct"
+        output_of($input, q{2@@@1}), $expected,
+        "should allow literal at"
     );
 };
 
@@ -142,8 +142,8 @@ ed
 EOF
 
     is(
-        output_of($input, q{2$1}), $expected,
-        "should allow dollar fields without spaces in spec"
+        output_of($input, q{2%1}), $expected,
+        "should allow pct fields without spaces in spec"
     );
 }
 
@@ -154,8 +154,8 @@ ef
 EOF
 
     is(
-        output_of($input, q{2$-1}), $expected,
-        "should allow negative dollar fields without spaces in spec"
+        output_of($input, q{2%-1}), $expected,
+        "should allow negative pct fields without spaces in spec"
     );
 }
 
@@ -165,8 +165,8 @@ cba
 fed
 EOF
     is(
-        output_of($input, q{3${2}1}), $expected,
-        "should allow dollar fields with curly braces without spaces in spec"
+        output_of($input, q{3%{2}1}), $expected,
+        "should allow pct fields with curly braces without spaces in spec"
     );
 };
 
@@ -176,8 +176,8 @@ bca
 efd
 EOF
     is(
-        output_of($input, q{2${-1}1}), $expected,
-        "should allow negative dollar fields with curly braces without spaces in spec"
+        output_of($input, q{2%{-1}1}), $expected,
+        "should allow negative pct fields with curly braces without spaces in spec"
     );
 };
 
@@ -185,19 +185,19 @@ EOF
     my $expected = qr/invalid explicit field specifier/;
 
     like(
-        output_of($input, q{2${1something}1}), $expected,
-        "should reject non-number content in dollar curly braces"
+        output_of($input, q{2%{1something}1}), $expected,
+        "should reject non-number content in pct curly braces"
     );
 };
 
 {
     my $expected = <<'EOF';
-b$a
-e$d
+b%a
+e%d
 EOF
     is(
-        output_of($input, q{2$$$1}), $expected,
-        "should allow literal double dollar"
+        output_of($input, q{2%%%1}), $expected,
+        "should allow literal double pct"
     );
 };
 

@@ -12,11 +12,11 @@
 #  Negative numbers are calculated as usual in interpreted languages: -1
 #  is the last field, -2 the second to last, etc.
 #
-#  Use %\d+ for number literals, %-\d+ for negative literals.
+#  Use @\d+ for number literals, @-\d+ for negative literals.
 #
-#  Use %% for literal '%', and $$ for literal '$'.
+#  Use @@ for literal '@', and %% for literal '%'.
 #
-#  Use $\d+ or ${\d+} (or with negative numbers) to explicitly specify
+#  Use %\d+ or %{\d+} (or with negative numbers) to explicitly specify
 #  fields.
 #
 #  All AWK programs begin with 'BEGIN {OFS=IFS}'.  If you specify an IFS
@@ -42,19 +42,19 @@
 #   p 1,2,3
 #       awk '{print $1 "," $2 "," $3}'
 #
-#   p 1,%2,3
+#   p 1,@2,3
 #       awk '{print $1 ",2," $3}'
 #
-#   p 1,%%2,3
-#       awk '{print $1 ",%" $2 "," $3}'
+#   p 1,@@2,3
+#       awk '{print $1 ",@" $2 "," $3}'
 #
-#   p 1%2\$3
+#   p 1@2%3
 #       awk '{print $1 "2" $3}'
 #
-#   p 1%{2$3anything}
-#       awk '{print $1 "2$3anything" }'
+#   p 1@{2%3anything}
+#       awk '{print $1 "2%3anything" }'
 #
-#   p '1%2${3}4'
+#   p '1@2%{3}4'
 #       awk '{print $1 "2" $3 $4}'
 #
 #   p -1 -2 1
@@ -76,6 +76,8 @@
 
 use warnings;
 use strict;
+
+my $DEBUG = $ENV{DEBUG};
 
 sub begins_with_dash { qr/^-/ }
 sub negative_int { qr/^-\d+$/ }
@@ -125,12 +127,12 @@ sub partition_args {
 sub token_re {
     return qr/
         (
-            %%          | # literal %
-            \$\$        | # literal $
-            %-?\d+      | # literal digits
-            %\{[^}]*\}  | # literal block
-            \$-?\d+     | # explicit field specifier
-            \$\{[^}]*\} | # explicit field specifier
+            @@          | # literal @
+            \%\%        | # literal %
+            \@-?\d+     | # literal digits
+            @\{[^}]*\}  | # literal block
+            \%-?\d+     | # explicit field specifier
+            \%\{[^}]*\} | # explicit field specifier
             -?\d+         # field specifier
         )
     /x;
@@ -142,7 +144,7 @@ sub token_group {
     my @tokens_with_empty_strings = split(token_re, $arg);
     my @token_group = grep { $_ ne '' } @tokens_with_empty_strings;
 
-    #warn "token_group:\n", join("\n", @token_group), "\n";
+    warn "token_group:\n", join("\n", @token_group), "\n" if $DEBUG;
 
     return \@token_group;
 }
@@ -150,33 +152,42 @@ sub token_group {
 sub dsl_token_to_awk_spec {
     my ($token) = @_;
 
-    # literal %
-    return q{"%"} if ($token =~ /^%%$/);
+    my $spec = undef;
 
-    # literal $
-    return q{"$"} if ($token =~ /^\$\$$/);
+    # literal @
+    $spec = q{"@"} if ($token =~ /^@@$/);
+
+    # literal %
+    $spec = q{"%"} if ($token =~ /^%%$/);
 
     # literal digits
-    if ($token =~ /^%(-?\d+)$/)     { return qq{"$1"}; }
+    if ($token =~ /^@(-?\d+)$/)     { $spec = qq{"$1"}; }
 
     # literal block
-    if ($token =~ /^%\{([^}]*)\}$/) { return qq{"$1"}; }
+    if ($token =~ /^@\{([^}]*)\}$/) { $spec = qq{"$1"}; }
 
     # field specifiers
-    if ($token =~ /^(\d+)$/)        { return "\$$1"; }
-    if ($token =~ /^\$(\d+)$/)      { return "\$$1"; }
-    if ($token =~ /^\$\{(\d+)\}$/)  { return "\$$1"; }
+    if ($token =~ /^(\d+)$/)        { $spec = "\$$1"; }
+    if ($token =~ /^%(\d+)$/)       { $spec = "\$$1"; }
+    if ($token =~ /^%\{(\d+)\}$/)   { $spec = "\$$1"; }
 
     # negatively-indexed field specifiers
-    if ($token =~ /^-(\d+)$/)       { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^\$-(\d+)$/)     { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^\$\{-(\d+)\}$/) { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^-(\d+)$/)       { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^%-(\d+)$/)      { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+    if ($token =~ /^%\{-(\d+)\}$/)  { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
 
     # syntax rejects
-    if ($token =~ /^\$\{.*\}$/)     { die "invalid explicit field specifier: $token"; }
+    if ($token =~ /^%\{(.*)\}$/)    {
+        my $contents = $1;
+        die "invalid explicit field specifier: $token" unless $contents =~ /^-?\d+$/;
+    }
 
     # add quotes to literal strings
-    return qq{"$token"};
+    $spec = qq{"$token"} if !defined $spec;
+
+    warn "token '$token' -> spec '$spec'" if $DEBUG;
+
+    return $spec;
 }
 
 sub dsl_token_group_to_print_spec_group {
@@ -195,7 +206,7 @@ sub main {
     my $print_spec = join(', ', @with_groups_joined); # with comma in the awk print
     my $cmd = join(' ', 'awk', @awk_args, qq{'BEGIN{OFS=FS} {print $print_spec}'});
 
-    #warn $cmd;
+    warn $cmd if $DEBUG;
     exec $cmd;
 }
 
