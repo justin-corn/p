@@ -19,7 +19,7 @@
 #  Use %\d+ or %{\d+} (or with negative numbers) to explicitly specify
 #  fields.
 #
-#  All AWK programs begin with 'BEGIN {OFS=IFS}'.  If you specify an IFS
+#  All AWK programs begin with 'BEGIN {OFS=FS}'.  If you specify an FS
 #  (ie, via -F), the OFS will also be set to that character.
 #
 #  Because this pass-through script doesn't know which options take
@@ -60,16 +60,16 @@
 #   p -1 -2 1
 #       awk '{print $(NF), $(NF - 1), $1}'
 #
-#   NOTE: the 'BEGIN {OFS=IFS}' part of the AWK program below has been
+#   NOTE: the 'BEGIN {OFS=FS}' part of the AWK program below has been
 #         omitted in all above examples, but is passed to AWK in all
 #         cases.
 #   p -F\| 1 ' ' 2
-#       awk -F \| 'BEGIN {OFS=IFS} {print $1, " ", $2}'
+#       awk -F \| 'BEGIN {OFS=FS} {print $1, " ", $2}'
 #
 #   NOTE: if you use -- as below, this pass-through script can handle
 #         spaces between opts and their args
 #   p -F \| -v foo=bar -- 1 ' ' 2
-#       awk -F \| 'BEGIN {OFS=IFS} {print $1, " ", $2}'
+#       awk -F \| 'BEGIN {OFS=FS} {print $1, " ", $2}'
 #
 # Copyright Justin Corn 2022
 # Distributed under MIT license.

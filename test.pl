@@ -243,6 +243,6 @@ d.f
 EOF
     is(
         output_of($input, qw{-F . -- 1 3}), $expected,
-        "should set OFS=IFS in BEGIN block"
+        "should set OFS=FS in BEGIN block"
     );
 };
