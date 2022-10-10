@@ -57,6 +57,9 @@
 #   p '1@2%{3}4'
 #       awk '{print $1 "2" $3 $4}'
 #
+#   p '1%{4:-1}'
+#       awk '{print $1 $4, $5, ..., $NF}'
+#
 #   p -1 -2 1
 #       awk '{print $(NF), $(NF - 1), $1}'
 #
@@ -176,14 +179,19 @@ sub dsl_token_to_awk_spec {
     if ($token =~ /^%-(\d+)$/)      { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
     if ($token =~ /^%\{-(\d+)\}$/)  { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
 
+    # range field specifier
+    if ($token =~ /^%\{(\d+):(\d+)\}$/)   { $spec = qq{"";_print_range($1, $2); print }; }
+    if ($token =~ /^%\{-(\d+):(\d+)\}$/)  { $spec = qq{"";_print_range(NF - $1 + 1, $2); print }; }
+    if ($token =~ /^%\{(\d+):-(\d+)\}$/)  { $spec = qq{"";_print_range($1, NF - $2 + 1); print }; }
+    if ($token =~ /^%\{-(\d+):-(\d+)\}$/) { $spec = qq{"";_print_range(NF - $1 + 1, NF - $2 + 1); print }; }
+
     # syntax rejects
-    if ($token =~ /^%\{(.*)\}$/)    {
-        my $contents = $1;
-        die "invalid explicit field specifier: $token" unless $contents =~ /^-?\d+$/;
+    if ($token =~ /^%\{(.*)\}$/ && !defined $spec) {
+        die "invalid explicit field specifier: $token";
     }
 
     # add quotes to literal strings
-    $spec = qq{"$token"} if !defined $spec;
+    $spec = qq{"$token"} unless defined $spec;
 
     warn "token '$token' -> spec '$spec'" if $DEBUG;
 
@@ -202,10 +210,18 @@ BEGIN {
 }
 
 function _print_range(start, end) {
-    _prevORS = ORS;
+    _prev_ORS_in_print_range = ORS;
     ORS = "";
 
     i = start;
+
+    if (i < 1) {
+      i = 1;
+    }
+
+    if (end > NF) {
+      end = NF
+    }
 
     for (; i < end; i++) {
         print $i,"";
@@ -215,8 +231,7 @@ function _print_range(start, end) {
         print $end;
     }
 
-    ORS = _prevORS;
-    printf "%s", ORS;
+    ORS = _prev_ORS_in_print_range;
 }
 EOF
 
@@ -234,8 +249,10 @@ sub main {
     my @print_spec_groups = map { dsl_token_group_to_print_spec_group($_) } @token_groups;
     my @with_groups_joined = map { join(' ', @$_) } @print_spec_groups; # no comma in the awk print
     my $print_spec = join(', ', @with_groups_joined); # with comma in the awk print
+
     my $prelude = awk_prelude();
-    my $cmd = join(' ', 'awk', @awk_args, qq{'$prelude {print $print_spec}'});
+
+    my $cmd = join(' ', 'awk', @awk_args, qq{'$prelude {_prev_ORS=ORS; ORS=""; print $print_spec ""; ORS=_prev_ORS; printf "%s", ORS;}'});
 
     warn $cmd if $DEBUG;
     exec $cmd;

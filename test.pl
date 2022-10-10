@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 18;
+use Test::More tests => 35;
 use File::Temp 'tempfile';
 
 my (undef, $stdout_path) = tempfile('test.pl.stdout.XXXX', UNLINK => 1);
@@ -107,6 +107,7 @@ EOF
 c2 %3 anythinga
 f2 %3 anythingd
 EOF
+
     is(
         output_of($input, q{3@{2 %3 anything}1}), $expected,
         "should allow at literal blocks with curly braces in spec"
@@ -118,6 +119,7 @@ EOF
 b-1a
 e-1d
 EOF
+
     is(
         output_of($input, q{2@{-1}1}), $expected,
         "should allow negative at literals with curly braces without spaces in spec"
@@ -129,6 +131,7 @@ EOF
 b@1
 e@1
 EOF
+
     is(
         output_of($input, q{2@@@1}), $expected,
         "should allow literal at"
@@ -164,6 +167,7 @@ EOF
 cba
 fed
 EOF
+
     is(
         output_of($input, q{3%{2}1}), $expected,
         "should allow pct fields with curly braces without spaces in spec"
@@ -175,6 +179,7 @@ EOF
 bca
 efd
 EOF
+
     is(
         output_of($input, q{2%{-1}1}), $expected,
         "should allow negative pct fields with curly braces without spaces in spec"
@@ -191,22 +196,227 @@ EOF
 };
 
 {
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{2:3}}), $expected,
+        "should allow field ranges"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b ca b
+e fd e
+EOF
+
+    is(
+        output_of($input, q{%{2:3}%{1:2}}), $expected,
+        "should allow multiple field ranges"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c a b
+e f d e
+EOF
+
+    is(
+        output_of($input, q{%{2:3} %{1:2}}), $expected,
+        "should allow multiple field ranges with FSs"
+    );
+};
+
+{
+    my $expected = <<EOF;
+ab cfooa bb
+de ffood ee
+EOF
+
+    is(
+        output_of($input, q{1%{2:3}foo%{1:2}2}), $expected,
+        "should allow multiple field ranges and fields and literals"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a b c foo a b b
+d e f foo d e e
+EOF
+
+    is(
+        output_of($input, q{1 %{2:3} foo %{1:2} 2}), $expected,
+        "should allow multiple field ranges and fields and literals with FSs"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{-2:3}}), $expected,
+        "should allow multiple field ranges starting with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{2:-1}}), $expected,
+        "should allow multiple field ranges ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{-2:-1}}), $expected,
+        "should allow multiple field ranges starting and ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a
+d
+EOF
+
+    is(
+        output_of($input, q{%{1:1}}), $expected,
+        "should allow field ranges having one element"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a
+d
+EOF
+
+    is(
+        output_of($input, q{%{-3:1}}), $expected,
+        "should allow field ranges having one element, starting with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a
+d
+EOF
+
+    is(
+        output_of($input, q{%{1:-3}}), $expected,
+        "should allow field ranges having one element, ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a
+d
+EOF
+
+    is(
+        output_of($input, q{%{-3:-3}}), $expected,
+        "should allow field ranges having one element, starting and ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a b c
+d e f
+EOF
+
+    is(
+        output_of($input, q{%{-200:300}}), $expected,
+        "should silently skip non-existent elements in ranges"
+    );
+};
+
+{
+    my $expected = <<EOF;
+ac
+df
+EOF
+
+    is(
+        output_of($input, q{1%{3:1}3}), $expected,
+        "should silently skip reversed ranges"
+    );
+};
+
+{
+    my $expected = <<EOF;
+ac
+df
+EOF
+
+    is(
+        output_of($input, q{1%{-1:1}3}), $expected,
+        "should silently skip reversed ranges starting with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+ac
+df
+EOF
+
+    is(
+        output_of($input, q{1%{3:-3}3}), $expected,
+        "should silently skip reversed ranges ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+ac
+df
+EOF
+
+    is(
+        output_of($input, q{1%{-1:-3}3}), $expected,
+        "should silently skip reversed ranges starting and ending with a negative"
+    );
+};
+
+{
     my $expected = <<'EOF';
 b%a
 e%d
 EOF
+
     is(
         output_of($input, q{2%%%1}), $expected,
         "should allow literal double pct"
     );
 };
 
-
 {
     my $input = <<EOF;
 a.b.c
 d.e.f
 EOF
+
     my $expected = <<EOF;
 c
 f
@@ -222,6 +432,7 @@ EOF
 a.b.c
 d.e.f
 EOF
+
     my $expected = <<EOF;
 c
 f
@@ -237,6 +448,7 @@ EOF
 a.b.c
 d.e.f
 EOF
+
     my $expected = <<EOF;
 a.c
 d.f
