@@ -195,6 +195,36 @@ sub dsl_token_group_to_print_spec_group {
     return [map { dsl_token_to_awk_spec($_) } @$group];
 }
 
+sub awk_prelude {
+    my $prelude = <<'EOF';
+BEGIN {
+    OFS = FS
+}
+
+function _print_range(start, end) {
+    _prevORS = ORS;
+    ORS = "";
+
+    i = start;
+
+    for (; i < end; i++) {
+        print $i,"";
+    }
+
+    if (i == end) {
+        print $end;
+    }
+
+    ORS = _prevORS;
+    printf "%s", ORS;
+}
+EOF
+
+    $prelude =~ s/\s+/ /g;
+
+    return $prelude
+}
+
 sub main {
     my ($raw_awk_args, $raw_print_dsl) = partition_args(@ARGV);
 
@@ -204,7 +234,8 @@ sub main {
     my @print_spec_groups = map { dsl_token_group_to_print_spec_group($_) } @token_groups;
     my @with_groups_joined = map { join(' ', @$_) } @print_spec_groups; # no comma in the awk print
     my $print_spec = join(', ', @with_groups_joined); # with comma in the awk print
-    my $cmd = join(' ', 'awk', @awk_args, qq{'BEGIN{OFS=FS} {print $print_spec}'});
+    my $prelude = awk_prelude();
+    my $cmd = join(' ', 'awk', @awk_args, qq{'$prelude {print $print_spec}'});
 
     warn $cmd if $DEBUG;
     exec $cmd;
