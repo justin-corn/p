@@ -130,7 +130,7 @@ sub token_re {
             %-?\d+      | # literal digits
             %\{[^}]*\}  | # literal block
             \$-?\d+     | # explicit field specifier
-            \$\{-?\d+\} | # explicit field specifier
+            \$\{[^}]*\} | # explicit field specifier
             -?\d+         # field specifier
         )
     /x;
@@ -141,6 +141,8 @@ sub token_group {
 
     my @tokens_with_empty_strings = split(token_re, $arg);
     my @token_group = grep { $_ ne '' } @tokens_with_empty_strings;
+
+    #warn "token_group:\n", join("\n", @token_group), "\n";
 
     return \@token_group;
 }
@@ -169,6 +171,9 @@ sub dsl_token_to_awk_spec {
     if ($token =~ /^-(\d+)$/)       { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
     if ($token =~ /^\$-(\d+)$/)     { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
     if ($token =~ /^\$\{-(\d+)\}$/) { return qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
+
+    # syntax rejects
+    if ($token =~ /^\$\{.*\}$/)     { die "invalid explicit field specifier: $token"; }
 
     # add quotes to literal strings
     return qq{"$token"};

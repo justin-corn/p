@@ -1,6 +1,10 @@
 use strict;
 use warnings;
-use Test::More tests => 17;
+use Test::More tests => 18;
+use File::Temp 'tempfile';
+
+my (undef, $stdout_path) = tempfile('test.pl.stdout.XXXX', UNLINK => 1);
+my (undef, $stderr_path) = tempfile('test.pl.stderr.XXXX', UNLINK => 1);
 
 sub output_of {
     my ($input, @args) = @_;
@@ -9,12 +13,14 @@ sub output_of {
     my @quoted_args = map { quotemeta } @args;
 
     my $cmd = <<EOF;
-cat <<EOF2 | ./p @quoted_args
+cat <<EOF2 | ./p @quoted_args > $stdout_path 2> $stderr_path
 $input
 EOF2
 EOF
 
-    return qx{$cmd};
+    system($cmd);
+
+    return qx{cat $stdout_path $stderr_path};
 }
 
 # default input
@@ -172,6 +178,15 @@ EOF
     is(
         output_of($input, q{2${-1}1}), $expected,
         "should allow negative dollar fields with curly braces without spaces in spec"
+    );
+};
+
+{
+    my $expected = qr/invalid explicit field specifier/;
+
+    like(
+        output_of($input, q{2${1something}1}), $expected,
+        "should reject non-number content in dollar curly braces"
     );
 };
 
