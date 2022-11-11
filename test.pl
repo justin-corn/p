@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 35;
+use Test::More tests => 37;
 use File::Temp 'tempfile';
 
 my (undef, $stdout_path) = tempfile('test.pl.stdout.XXXX', UNLINK => 1);
@@ -456,5 +456,37 @@ EOF
     is(
         output_of($input, qw{-F . -- 1 3}), $expected,
         "should set OFS=FS in BEGIN block"
+    );
+};
+
+{
+    my $input = <<EOF;
+a.b.c
+d.e.f
+EOF
+
+    my $expected = <<EOF;
+"a" "c"
+"d" "f"
+EOF
+    is(
+        output_of($input, ('-F.', q{"1" "3"})), $expected,
+        "should respect literal double quotes passed via quotes"
+    );
+};
+
+{
+    my $input = <<EOF;
+a.b.c
+d.e.f
+EOF
+
+    my $expected = <<EOF;
+'a' 'c'
+'d' 'f'
+EOF
+    is(
+        output_of($input, ('-F.', q{'1' '3'})), $expected,
+        "should respect literal single quotes passed via quotes"
     );
 };

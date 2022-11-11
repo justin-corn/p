@@ -71,8 +71,13 @@
 #
 #   NOTE: if you use -- as below, this pass-through script can handle
 #         spaces between opts and their args
-#   p -F \| -v foo=bar -- 1 ' ' 2
+#   p -F\| -v foo=bar -- 1 ' ' 2
 #       awk -F \| 'BEGIN {OFS=FS} {print $1, " ", $2}'
+#
+#   NOTE: quoting can be used to pass through single and double quotes,
+#         and to put in separators beside that specified with -F.
+#   p -F\| '"1" "2"' 3
+#       awk -F \| 'BEGIN {OFS=FS} {print "\"" $1 "\" \"" $2 "\"", $3}'
 #
 # Copyright Justin Corn 2022
 # Distributed under MIT license.
@@ -191,7 +196,13 @@ sub dsl_token_to_awk_spec {
     }
 
     # add quotes to literal strings
-    $spec = qq{"$token"} unless defined $spec;
+    if (!defined $spec) {
+        # Escape quote characters to be passed through.
+        # Don't use quotemeta because gawk loudly rejects `\ ` and `\.`, for example.
+        $token =~ s#"#\\"#g;
+        $token =~ s#'#'\\''#g; # will be spliced into already-single-quoted command string
+        $spec = qq{"$token"};
+    }
 
     warn "token '$token' -> spec '$spec'" if $DEBUG;
 
