@@ -190,6 +190,12 @@ sub dsl_token_to_awk_spec {
     if ($token =~ /^%\{(\d+):-(\d+)\}$/)  { $spec = qq{"";_print_range($1, NF - $2 + 1); print }; }
     if ($token =~ /^%\{-(\d+):-(\d+)\}$/) { $spec = qq{"";_print_range(NF - $1 + 1, NF - $2 + 1); print }; }
 
+    # range field specifier with implicit start (1) or end (-1)
+    if ($token =~ /^%\{:(\d+)\}$/)  { $spec = qq{"";_print_range(1, $1); print }; }
+    if ($token =~ /^%\{:-(\d+)\}$/) { $spec = qq{"";_print_range(1, NF - $1 + 1); print }; }
+    if ($token =~ /^%\{(\d+):\}$/)  { $spec = qq{"";_print_range($1, NF); print }; }
+    if ($token =~ /^%\{-(\d+):\}$/) { $spec = qq{"";_print_range(NF - $1 + 1, NF); print }; }
+
     # syntax rejects
     if ($token =~ /^%\{(.*)\}$/ && !defined $spec) {
         die "invalid explicit field specifier: $token";

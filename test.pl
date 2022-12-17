@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 37;
+use Test::More tests => 41;
 use File::Temp 'tempfile';
 
 my (undef, $stdout_path) = tempfile('test.pl.stdout.XXXX', UNLINK => 1);
@@ -396,6 +396,54 @@ EOF
     is(
         output_of($input, q{1%{-1:-3}3}), $expected,
         "should silently skip reversed ranges starting and ending with a negative"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a b
+d e
+EOF
+
+    is(
+        output_of($input, q{%{:2}}), $expected,
+        "should allow field implicit start ranges with positive end"
+    );
+};
+
+{
+    my $expected = <<EOF;
+a b
+d e
+EOF
+
+    is(
+        output_of($input, q{%{:-2}}), $expected,
+        "should allow field implicit start ranges with negative end"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{2:}}), $expected,
+        "should allow field implicit end ranges with positive start"
+    );
+};
+
+{
+    my $expected = <<EOF;
+b c
+e f
+EOF
+
+    is(
+        output_of($input, q{%{-2:}}), $expected,
+        "should allow field implicit end ranges with negative end"
     );
 };
 
