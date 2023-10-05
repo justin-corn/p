@@ -175,26 +175,14 @@ sub dsl_token_to_awk_spec {
     if ($token =~ /^@\{([^}]*)\}$/) { $spec = qq{"$1"}; }
 
     # field specifiers
-    if ($token =~ /^(\d+)$/)        { $spec = "\$$1"; }
-    if ($token =~ /^%(\d+)$/)       { $spec = "\$$1"; }
-    if ($token =~ /^%\{(\d+)\}$/)   { $spec = "\$$1"; }
+    if ($token =~ /^(-?\d+)$/)            { $spec = qq{_field($1)}; }
+    if ($token =~ /^%(-?\d+)$/)           { $spec = qq{_field($1)}; }
+    if ($token =~ /^%\{\s*(-?\d+)\s*\}$/) { $spec = qq{_field($1)}; }
 
-    # negatively-indexed field specifiers
-    if ($token =~ /^-(\d+)$/)       { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^%-(\d+)$/)      { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-    if ($token =~ /^%\{-(\d+)\}$/)  { $spec = qq{((NF - $1 + 1) < 1 ? "" : \$(NF - $1 + 1))}; }
-
-    # range field specifier
-    if ($token =~ /^%\{(\d+):(\d+)\}$/)   { $spec = qq{"";_print_range($1, $2); print }; }
-    if ($token =~ /^%\{-(\d+):(\d+)\}$/)  { $spec = qq{"";_print_range(NF - $1 + 1, $2); print }; }
-    if ($token =~ /^%\{(\d+):-(\d+)\}$/)  { $spec = qq{"";_print_range($1, NF - $2 + 1); print }; }
-    if ($token =~ /^%\{-(\d+):-(\d+)\}$/) { $spec = qq{"";_print_range(NF - $1 + 1, NF - $2 + 1); print }; }
-
-    # range field specifier with implicit start (1) or end (-1)
-    if ($token =~ /^%\{:(\d+)\}$/)  { $spec = qq{"";_print_range(1, $1); print }; }
-    if ($token =~ /^%\{:-(\d+)\}$/) { $spec = qq{"";_print_range(1, NF - $1 + 1); print }; }
-    if ($token =~ /^%\{(\d+):\}$/)  { $spec = qq{"";_print_range($1, NF); print }; }
-    if ($token =~ /^%\{-(\d+):\}$/) { $spec = qq{"";_print_range(NF - $1 + 1, NF); print }; }
+    # field range specifier
+    if ($token =~ /^%\{\s*(-?\d+)\s*:\s*(-?\d+)\s*\}$/) { $spec = qq{_range_str($1, $2)}; }
+    if ($token =~ /^%\{\s*:\s*(-?\d+)\s*\}$/)           { $spec = qq{_range_str( 1, $1)}; }
+    if ($token =~ /^%\{\s*(-?\d+)\s*:\s*\}$/)           { $spec = qq{_range_str($1, NF)}; }
 
     # syntax rejects
     if ($token =~ /^%\{(.*)\}$/ && !defined $spec) {
@@ -226,29 +214,33 @@ BEGIN {
     OFS = FS
 }
 
-function _print_range(start, end) {
-    _prev_ORS_in_print_range = ORS;
-    ORS = "";
+function _offset(i) {
+  neg_offset_resolved = NF + i + 1;
+  offset = i < 0 ? neg_offset_resolved : i;
+  return offset;
+}
 
-    i = start;
+function _field(i) {
+  offset = _offset(i);
+  return offset < 1 || offset > NF ? "" : $offset;
+}
 
-    if (i < 1) {
-      i = 1;
+function _range_str(start, end) {
+    resolved_start = _offset(start);
+    resolved_end = _offset(end);
+    bounded_start = resolved_start < 1 ? 1 : resolved_start;
+    bounded_end = resolved_end > NF ? NF : resolved_end;
+
+    acc = "";
+
+    for (i = bounded_start; i <= bounded_end; i++) {
+        acc = acc _field(i);
+        if (i != bounded_end) {
+          acc = acc OFS;
+        }
     }
 
-    if (end > NF) {
-      end = NF
-    }
-
-    for (; i < end; i++) {
-        print $i,"";
-    }
-
-    if (i == end) {
-        print $end;
-    }
-
-    ORS = _prev_ORS_in_print_range;
+    return acc;
 }
 EOF
 
@@ -269,7 +261,7 @@ sub main {
 
     my $prelude = awk_prelude();
 
-    my $cmd = join(' ', 'awk', @awk_args, qq{'$prelude {_prev_ORS=ORS; ORS=""; print $print_spec ""; ORS=_prev_ORS; printf "%s", ORS;}'});
+    my $cmd = join(' ', 'awk', @awk_args, qq{'$prelude {print $print_spec}'});
 
     warn $cmd if $DEBUG;
     exec $cmd;
